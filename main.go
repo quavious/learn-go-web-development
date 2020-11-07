@@ -1,31 +1,75 @@
 package main
 
-import "net/http"
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"text/template"
 
-type h1 int
-type h2 int
+	"github.com/julienschmidt/httprouter"
+)
 
-func (h *h1) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Dog Says Bark!"))
+var tpl *template.Template
+
+func init() {
+	tpl = template.Must(template.ParseGlob("templates/*"))
 }
 
-func (h *h2) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Cat Says Meow!"))
+func handleError(w http.ResponseWriter, e error) {
+	if e != nil {
+		http.Error(w, e.Error(), http.StatusInternalServerError)
+		log.Println(e)
+	}
 }
 
-func r(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("It is just a function, not handler."))
+func user(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	fmt.Fprintf(w, "User, %s!\n", ps.ByName("name"))
+}
+
+func blogRead(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	fmt.Fprintf(w, "READ CATEGORY, %s!\n", ps.ByName("category"))
+	fmt.Fprintf(w, "READ ARTICLE, %s!\n", ps.ByName("article"))
+}
+
+func blogWrite(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	fmt.Fprintf(w, "WRITE CATEGORY, %s!\n", ps.ByName("category"))
+	fmt.Fprintf(w, "WRITE ARTICLE, %s!\n", ps.ByName("article"))
+}
+
+func index(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	err := tpl.ExecuteTemplate(w, "index.gohtml", nil)
+	handleError(w, err)
+}
+
+func about(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	err := tpl.ExecuteTemplate(w, "about.gohtml", nil)
+	handleError(w, err)
+}
+
+func contact(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	err := tpl.ExecuteTemplate(w, "contact.gohtml", nil)
+	handleError(w, err)
+}
+
+func apply(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	err := tpl.ExecuteTemplate(w, "apply.gohtml", nil)
+	handleError(w, err)
+}
+
+func applyProcess(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	err := tpl.ExecuteTemplate(w, "applyProcess.gohtml", nil)
+	handleError(w, err)
 }
 
 func main() {
-	var p h1
-	var q h2
-
-	//mux := http.NewServeMux()
-	http.Handle("/dog/", &p)
-	http.Handle("/cat/", &q)
-
-	http.HandleFunc("/func", r)
-
-	http.ListenAndServe("localhost:8000", nil)
+	mux := httprouter.New()
+	mux.GET("/", index)
+	mux.GET("/about", about)
+	mux.GET("/contact", contact)
+	mux.GET("/apply", apply)
+	mux.POST("/apply", applyProcess)
+	mux.GET("/user/:name", user)
+	mux.GET("/blog/:category/:article", blogRead)
+	mux.POST("/blog/:category/:article", blogWrite)
+	http.ListenAndServe("localhost:8080", mux)
 }
