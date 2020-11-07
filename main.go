@@ -1,59 +1,58 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"html/template"
+	"log"
+	"net/http"
+	"net/url"
+)
 
-type newInt int
-
-type person struct {
-	Name string
-	Age  int
+type Handler struct {
 }
 
-type agent struct {
-	person
-	license string
+type Any interface{}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	//log.Println(w, r)
+	err := r.ParseForm()
+	if checkError(err) {
+		log.Fatalln(err)
+	}
+	tpl, err := template.ParseGlob("templates/*")
+
+	if checkError(err) {
+		return
+	}
+
+	data := struct {
+		Method        string
+		URL           *url.URL
+		Submissions   map[string][]string
+		Header        http.Header
+		Host          string
+		ContentLength int64
+	}{
+		r.Method,
+		r.URL,
+		r.Form,
+		r.Header,
+		r.Host,
+		r.ContentLength,
+	}
+	tpl.ExecuteTemplate(w, "index.gohtml", data)
 }
 
-func (p *person) speak() {
-	fmt.Println(p.Name, p.Age)
-}
-
-type human interface {
-	speak()
-}
-
-func saySomething(h human) {
-	h.speak()
+func checkError(e error) bool {
+	if e != nil {
+		log.Println(e.Error())
+		return true
+	}
+	return false
 }
 
 func main() {
-	var t int
-	fmt.Printf("%T %d\n", t, t)
-
-	xi := []int{1, 2, 3, 4, 5}
-	fmt.Println(xi)
-
-	m := map[string]int{}
-	m["Lee"] = 34
-	m["Kim"] = 45
-	fmt.Println(m)
-
-	var ni newInt
-	ni = 0
-	fmt.Println(ni)
-
-	p1 := person{"John Doe", 10}
-	fmt.Println(p1)
-	p1.speak()
-
-	p2 := agent{
-		person{
-			"James Bond",
-			36,
-		},
-		"Fish",
-	}
-	p2.speak()
-	saySomething(&p2)
-	return
+	var handler Handler
+	http.ListenAndServe("localhost:8000", &handler)
+	fmt.Println("Server On 8000")
 }
