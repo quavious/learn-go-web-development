@@ -3,46 +3,42 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"strings"
-	"text/template"
 )
 
-var tpl *template.Template
+var html string
 
 func init() {
-	tpl = template.Must(template.ParseGlob("templates/*"))
+	html = `
+		<html>
+			<head>
+				<meta charset="utf-8" />
+				<title>Hello Go!</title>
+			</head>
+			<body>
+				<form action="/" method="POST">
+					<input name="q" type="text" id="text" />
+					<input type="checkbox" id="check" name="check" />
+					<button type="submit">Submit!</button>
+				</form>
+			</body>
+		</html>
+	`
+}
+
+func foo(w http.ResponseWriter, r *http.Request) {
+	query := r.FormValue("q")
+	isCheck := r.FormValue("check") == "on"
+	if len(query) <= 0 {
+		w.Write([]byte(html))
+		return
+	}
+
+	w.Write([]byte(html + "<br/><h1>" + query + "</h1>" + fmt.Sprintf("%v", isCheck)))
+	return
 }
 
 func main() {
-
-	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		data := "Index Page"
-		tpl.ExecuteTemplate(w, "index.html", struct {
-			Data string
-		}{
-			data,
-		})
-	}))
-
-	http.Handle("/dog/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		data := "Dogs Page"
-		tpl.ExecuteTemplate(w, "index.html", struct {
-			Data string
-		}{
-			data,
-		})
-	}))
-
-	http.Handle("/me/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		idx := strings.Replace(r.URL.Path, "/me/", "", 1)
-		data := fmt.Sprintf("My name is %s", idx)
-		tpl.ExecuteTemplate(w, "index.html", struct {
-			Data string
-		}{
-			data,
-		})
-	}))
-
+	http.HandleFunc("/", foo)
+	http.Handle("/favicon.ico", http.NotFoundHandler())
 	http.ListenAndServe("localhost:8000", nil)
-
 }
