@@ -1,8 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 )
 
 var html string
@@ -26,15 +31,51 @@ func init() {
 }
 
 func foo(w http.ResponseWriter, r *http.Request) {
-	query := r.FormValue("q")
-	isCheck := r.FormValue("check") == "on"
-	if len(query) <= 0 {
-		w.Write([]byte(html))
-		return
-	}
+	var q string
+	fmt.Println(r.Method)
+	if r.Method == "POST" {
+		f, h, err := r.FormFile("q")
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+		fmt.Println("\nfile: ", f, "\nheader: ", h, "\nerror", err)
 
-	w.Write([]byte(html + "<br/><h1>" + query + "</h1>" + fmt.Sprintf("%v", isCheck)))
-	return
+		cp := bytes.NewBuffer(nil)
+		n, err := io.Copy(cp, f)
+
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		q = string(n)
+
+		dst, err := os.Create(filepath.Join("./user/", h.Filename))
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer dst.Close()
+
+		_, err = dst.Write(cp.Bytes())
+
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(`
+		<form method="post", enctype="multipart/form-data">
+			<input type="file" name="q" />
+			<button type="submit">Submit</button>
+		</form><br/>
+	` + q))
 }
 
 func main() {
