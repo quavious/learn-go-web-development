@@ -30,8 +30,9 @@ func foo(w http.ResponseWriter, r *http.Request) {
 
 func bar(w http.ResponseWriter, r *http.Request) {
 	log.Println("Your Request method at bar : ", r.Method)
-	w.Header().Set("Location", "/")
-	w.WriteHeader(http.StatusSeeOther)
+	//w.Header().Set("Location", "/barred")
+	//w.WriteHeader(http.StatusSeeOther)
+	http.Redirect(w, r, "/barred", http.StatusMovedPermanently)
 }
 
 func barred(w http.ResponseWriter, r *http.Request) {
